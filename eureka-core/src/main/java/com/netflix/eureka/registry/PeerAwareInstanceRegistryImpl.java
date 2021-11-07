@@ -70,6 +70,8 @@ import javax.inject.Singleton;
  * </p>
  *
  * <p>
+ *     当eureka server 启动的时候，会去其它eureka server服务实例抓取注册表信息，如果抓取失败了，那么
+ *     在一段时间内不会允许其它eureka client来进行服务发现获取注册表信息
  * When the eureka server starts up it tries to fetch all the registry
  * information from the peer eureka nodes.If for some reason this operation
  * fails, the server does not allow the user to get the registry information for
@@ -78,6 +80,7 @@ import javax.inject.Singleton;
  * </p>
  *
  * <p>
+ *     当服务实例个数超过一定比例的数量没有续约后，认为自己出了故障，不会将实例摘除，将自己进入保护机制
  * One important thing to note about <em>renewals</em>.If the renewal drops more
  * than the specified threshold as specified in
  * {@link com.netflix.eureka.EurekaServerConfig#getRenewalPercentThreshold()} within a period of
@@ -201,6 +204,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * Populates the registry information from a peer eureka node. This
      * operation fails over to other nodes until the list is exhausted if the
      * communication fails.
+     * 从一个相邻的eureka server node获取注册表信息
      */
     @Override
     public int syncUp() {

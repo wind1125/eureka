@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  *
  * @author Karthik Ranganathan, Greg Kim
+ * 代表一个eureka server 信息
  *
  */
 public class PeerEurekaNode {

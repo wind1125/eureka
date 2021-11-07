@@ -48,6 +48,8 @@ import org.slf4j.LoggerFactory;
  * serialized as specified by the <code>@Serializer</code>.
  * </p>
  *
+ * 包装自己作为服务server实例
+ *
  * @author Karthik Ranganathan, Greg Kim
  */
 @ProvidedBy(EurekaConfigBasedInstanceInfoProvider.class)
@@ -351,6 +353,9 @@ public class InstanceInfo {
         SECURE, UNSECURE
     }
 
+    /**
+     * InstanceInfo 对象构造器模式
+     */
     public static final class Builder {
         private static final String COLON = ":";
         private static final String HTTPS_PROTOCOL = "https://";

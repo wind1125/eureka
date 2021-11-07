@@ -25,6 +25,7 @@ import java.util.List;
 
 /**
  * @author Tomasz Bak
+ * 同等伙伴能意识到服务实例注册表，即包括其它服务实例的注册表信息
  */
 public interface PeerAwareInstanceRegistry extends InstanceRegistry {
 
