@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
  * For example eureka client registry data staleness defines thresholds 30s, 60s, 120s, 240s, 480s. Delay of 90s
  * would be mapped to gauge values {30s=0, 60s=1, 120=0, 240s=0, 480s=0, unlimited=0}.
  *
+ * 看起来像是监控  监控eureka client 和 eureka server 注册 、拉取等过程？
  * @author Tomasz Bak
  */
 public class ThresholdLevelsMetric {

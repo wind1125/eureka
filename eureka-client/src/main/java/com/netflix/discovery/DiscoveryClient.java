@@ -164,6 +164,7 @@ public class DiscoveryClient implements EurekaClient {
     private volatile InstanceInfo.InstanceStatus lastRemoteInstanceStatus = InstanceInfo.InstanceStatus.UNKNOWN;
     private final CopyOnWriteArraySet<EurekaEventListener> eventListeners = new CopyOnWriteArraySet<>();
 
+    // appName + appId ,如ServerA/0001 ,每个服务名都会部署多个实例，这里代表其中一个实例
     private String appPathIdentifier;
     private ApplicationInfoManager.StatusChangeListener statusChangeListener;
 
@@ -325,6 +326,7 @@ public class DiscoveryClient implements EurekaClient {
             logger.warn("Setting instanceInfo to a passed in null value");
         }
 
+        //备用注册表干啥的呢？
         this.backupRegistryProvider = backupRegistryProvider;
 
         this.urlRandomizer = new EndpointUtils.InstanceInfoBasedUrlRandomizer(instanceInfo);
@@ -341,7 +343,7 @@ public class DiscoveryClient implements EurekaClient {
         } else {
             this.registryStalenessMonitor = ThresholdLevelsMetric.NO_OP_METRIC;
         }
-        //会根据配置 决定是否去服务注册，单服务器启动时不需要
+        //根据配置 决定是否去其它服务注册，单服务器启动时不需要（本身就是服务端）
         if (config.shouldRegisterWithEureka()) {
             this.heartbeatStalenessMonitor = new ThresholdLevelsMetric(this, METRIC_REGISTRATION_PREFIX + "lastHeartbeatSec_", new long[]{15L, 30L, 60L, 120L, 240L, 480L});
         } else {
@@ -397,9 +399,11 @@ public class DiscoveryClient implements EurekaClient {
                             .build()
             );  // use direct handoff
 
+            //初始化网络通信组件
             eurekaTransport = new EurekaTransport();
             scheduleServerEndpointTask(eurekaTransport, args);
 
+            //可能跟特定环境有关
             AzToRegionMapper azToRegionMapper;
             if (clientConfig.shouldUseDnsForFetchingServiceUrls()) {
                 azToRegionMapper = new DNSBasedAzToRegionMapper(clientConfig);
@@ -413,7 +417,7 @@ public class DiscoveryClient implements EurekaClient {
         } catch (Throwable e) {
             throw new RuntimeException("Failed to initialize DiscoveryClient!", e);
         }
-        //获取注册表数据
+        //如果获取注册表开关打开，则取抓取，获取注册表数据失败，则走备用注册表
         if (clientConfig.shouldFetchRegistry() && !fetchRegistry(false)) {
             fetchRegistryFromBackup();//如果抓取失败逻辑
         }
@@ -425,6 +429,7 @@ public class DiscoveryClient implements EurekaClient {
         initScheduledTasks();
 
         try {
+            // 注册监控
             Monitors.registerObject(this);
         } catch (Throwable e) {
             logger.warn("Cannot register timers", e);
@@ -1241,7 +1246,8 @@ public class DiscoveryClient implements EurekaClient {
      */
     private void initScheduledTasks() {
         if (clientConfig.shouldFetchRegistry()) {
-            // registry cache refresh timer 每隔一段时间去抓取注册表
+            // registry cache refresh timer
+            // 每隔一段时间去抓取注册表
             int registryFetchIntervalSeconds = clientConfig.getRegistryFetchIntervalSeconds();
             int expBackOffBound = clientConfig.getCacheRefreshExecutorExponentialBackOffBound();
             scheduler.schedule(
@@ -1263,6 +1269,7 @@ public class DiscoveryClient implements EurekaClient {
             logger.info("Starting heartbeat executor: " + "renew interval is: " + renewalIntervalInSecs);
 
             // Heartbeat timer
+            // 定时发送心跳任务
             scheduler.schedule(
                     new TimedSupervisorTask(
                             "heartbeat",
@@ -1276,12 +1283,13 @@ public class DiscoveryClient implements EurekaClient {
                     renewalIntervalInSecs, TimeUnit.SECONDS);
 
             // InstanceInfo replicator
+            // 进行复制实例信息定时复制的调度任务
             instanceInfoReplicator = new InstanceInfoReplicator(
                     this,
                     instanceInfo,
                     clientConfig.getInstanceInfoReplicationIntervalSeconds(),
                     2); // burstSize
-            //服务状态变更监听器
+            // 注册一个服务状态变更监听器
             statusChangeListener = new ApplicationInfoManager.StatusChangeListener() {
                 @Override
                 public String getId() {
@@ -1301,10 +1309,12 @@ public class DiscoveryClient implements EurekaClient {
                 }
             };
 
+            //把监听器注册到服务端
             if (clientConfig.shouldOnDemandUpdateStatusChange()) {
                 applicationInfoManager.registerStatusChangeListener(statusChangeListener);
             }
 
+            // 开启 复制实例信息定时复制的调度任务
             instanceInfoReplicator.start(clientConfig.getInitialInstanceInfoReplicationIntervalSeconds());
         } else {
             logger.info("Not registering with Eureka server per configuration");
