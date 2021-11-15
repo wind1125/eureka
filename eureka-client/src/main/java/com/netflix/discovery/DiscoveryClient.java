@@ -1309,6 +1309,8 @@ public class DiscoveryClient implements EurekaClient {
                 }
             };
 
+            // 这里其实如果将自己注册到注册中心比较好，发起一次服务注册
+
             //把监听器注册到服务端
             if (clientConfig.shouldOnDemandUpdateStatusChange()) {
                 applicationInfoManager.registerStatusChangeListener(statusChangeListener);
