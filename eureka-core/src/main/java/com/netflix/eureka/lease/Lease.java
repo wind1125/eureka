@@ -39,6 +39,7 @@ public class Lease<T> {
     public static final int DEFAULT_DURATION_IN_SECS = 90;
 
     private T holder;
+    //清除时间
     private long evictionTimestamp;
     private long registrationTimestamp;
     private long serviceUpTimestamp;

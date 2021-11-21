@@ -271,7 +271,7 @@ public class InstanceResource {
 
     /**
      * Handles cancellation of leases for this particular instance.
-     *
+     * 处理服务取消续约请求
      * @param isReplication
      *            a header parameter containing information whether this is
      *            replicated from other nodes.
