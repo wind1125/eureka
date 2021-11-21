@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
  * A supervisor task that schedules subtasks while enforce a timeout.
  * Wrapped subtasks must be thread safe.
  *
+ * 实现一个任务执行成功后，才再次执行，每个一段时间执行，设计思路提取
+ *
  * @author David Qiang Liu
  */
 public class TimedSupervisorTask extends TimerTask {

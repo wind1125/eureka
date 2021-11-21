@@ -133,6 +133,7 @@ public class ApplicationResource {
      * Registers information about a particular instance for an
      * {@link com.netflix.discovery.shared.Application}.
      *
+     * 处理服务注册请求
      * @param info
      *            {@link InstanceInfo} information of the instance.
      * @param isReplication

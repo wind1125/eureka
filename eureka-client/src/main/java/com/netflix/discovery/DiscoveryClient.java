@@ -809,6 +809,7 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Register with the eureka service by making the appropriate REST call.
+     * 注册为eureka service
      */
     boolean register() throws Throwable {
         logger.info(PREFIX + appPathIdentifier + ": registering service...");
@@ -816,7 +817,7 @@ public class DiscoveryClient implements EurekaClient {
         try {
             httpResponse = eurekaTransport.registrationClient.register(instanceInfo);
         } catch (Exception e) {
-            logger.warn("{} - registration failed {}", PREFIX + appPathIdentifier, e.getMessage(), e);
+            logger.warn("{} - registrationAbstractJersey2EurekaHttpClient failed {}", PREFIX + appPathIdentifier, e.getMessage(), e);
             throw e;
         }
         if (logger.isInfoEnabled()) {
@@ -831,6 +832,7 @@ public class DiscoveryClient implements EurekaClient {
     boolean renew() {
         EurekaHttpResponse<InstanceInfo> httpResponse;
         try {
+            //发送心跳
             httpResponse = eurekaTransport.registrationClient.sendHeartBeat(instanceInfo.getAppName(), instanceInfo.getId(), instanceInfo, null);
             logger.debug("{} - Heartbeat status: {}", PREFIX + appPathIdentifier, httpResponse.getStatusCode());
             if (httpResponse.getStatusCode() == 404) {
@@ -916,7 +918,7 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Fetches the registry information.
-     *
+     * 全量 或 增量
      * <p>
      * This method tries to get only deltas after the first fetch unless there
      * is an issue in reconciling eureka server and client registry information.
@@ -936,8 +938,8 @@ public class DiscoveryClient implements EurekaClient {
 
             if (clientConfig.shouldDisableDelta()
                     || (!Strings.isNullOrEmpty(clientConfig.getRegistryRefreshSingleVipAddress()))
-                    || forceFullRegistryFetch
-                    || (applications == null)
+                    || forceFullRegistryFetch //增量抓取时 为false
+                    || (applications == null)  //第一次调用全量走这里，第二次就不为null
                     || (applications.getRegisteredApplications().size() == 0)
                     || (applications.getVersion() == -1)) //Client application does not have latest library supporting delta
             {
@@ -1004,6 +1006,11 @@ public class DiscoveryClient implements EurekaClient {
         return lastRemoteInstanceStatus;
     }
 
+    /**
+     * 验证hash值
+     * @param applications
+     * @return
+     */
     private String getReconcileHashCode(Applications applications) {
         TreeMap<String, AtomicInteger> instanceCountMap = new TreeMap<String, AtomicInteger>();
         if (isFetchingRemoteRegionRegistries()) {
@@ -1043,7 +1050,8 @@ public class DiscoveryClient implements EurekaClient {
 
         if (apps == null) {
             logger.error("The application is null for some reason. Not storing this information");
-        } else if (fetchRegistryGeneration.compareAndSet(currentUpdateGeneration, currentUpdateGeneration + 1)) {
+        }//拉取版本号哦控制
+        else if (fetchRegistryGeneration.compareAndSet(currentUpdateGeneration, currentUpdateGeneration + 1)) {
             localRegionApps.set(this.filterAndShuffle(apps));
             logger.debug("Got full registry with apps hashcode {}", apps.getAppsHashCode());
         } else {
@@ -1067,12 +1075,14 @@ public class DiscoveryClient implements EurekaClient {
     private void getAndUpdateDelta(Applications applications) throws Throwable {
         long currentUpdateGeneration = fetchRegistryGeneration.get();
 
+        //获取增量注册表数据
         Applications delta = null;
         EurekaHttpResponse<Applications> httpResponse = eurekaTransport.queryClient.getDelta(remoteRegionsRef.get());
         if (httpResponse.getStatusCode() == Status.OK.getStatusCode()) {
             delta = httpResponse.getEntity();
         }
 
+        //如果增量注册表为null，则取拉取全量注册表
         if (delta == null) {
             logger.warn("The server does not allow the delta revision to be applied because it is not safe. "
                     + "Hence got the full registry.");
@@ -1183,6 +1193,7 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Updates the delta information fetches from the eureka server into the
      * local cache.
+     * 本地注册表与拉取的增量注册表合并
      *
      * @param delta
      *            the delta information received from eureka server in the last
@@ -1192,6 +1203,7 @@ public class DiscoveryClient implements EurekaClient {
         int deltaCount = 0;
         for (Application app : delta.getRegisteredApplications()) {
             for (InstanceInfo instance : app.getInstances()) {
+                //获取本地注册表
                 Applications applications = getApplications();
                 String instanceRegion = instanceRegionChecker.getInstanceRegion(instance);
                 if (!instanceRegionChecker.isLocalRegion(instanceRegion)) {
@@ -1402,7 +1414,7 @@ public class DiscoveryClient implements EurekaClient {
     }
 
     /**
-     * The heartbeat task that renews the lease in the given intervals.
+     * The heartbeat task that renews the lease in the given intervals. 默认30s
      */
     private class HeartbeatThread implements Runnable {
 

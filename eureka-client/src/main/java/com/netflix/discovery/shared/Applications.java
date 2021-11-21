@@ -75,6 +75,8 @@ public class Applications {
     @XStreamImplicit
     private AbstractQueue<Application> applications;
 
+    //很多数据结构，让你可以通过appName获取一个application
+    //还可以根据主机名获取application
     private Map<String, Application> appNameApplicationMap = new ConcurrentHashMap<String, Application>();
     private Map<String, AbstractQueue<InstanceInfo>> virtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
     private Map<String, AbstractQueue<InstanceInfo>> secureVirtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
@@ -84,6 +86,7 @@ public class Applications {
     private Map<String, AtomicReference<List<InstanceInfo>>> shuffleVirtualHostNameMap = new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
     private Map<String, AtomicReference<List<InstanceInfo>>> shuffledSecureVirtualHostNameMap = new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
 
+    // 表示全量注册表的hashCode，如果增量拉取时，代表的也是服务端全量注册表hashcode，需要与本地对比
     private String appsHashCode;
 
     /**

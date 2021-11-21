@@ -96,6 +96,7 @@ public class ApplicationsResource {
 
     /**
      * Get information about all {@link com.netflix.discovery.shared.Applications}.
+     * 处理拉取注册表请求
      *
      * @param version the version of the request.
      * @param acceptHeader the accept header to indicate whether to serve JSON or XML data.
@@ -161,7 +162,7 @@ public class ApplicationsResource {
 
     /**
      * Get information about all delta changes in {@link com.netflix.discovery.shared.Applications}.
-     *
+     * 处理增量注册表请求
      * <p>
      * The delta changes represent the registry information change for a period
      * as configured by
