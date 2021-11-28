@@ -117,6 +117,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         }
     };
 
+    //最后一分钟心跳数计算
     private final MeasuredRate numberOfReplicationsLastMin;
 
     protected final EurekaClient eurekaClient;
@@ -525,10 +526,13 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      */
     private void updateRenewalThreshold() {
         try {
+            //将自己作为eureka client 从其他eureka server拉取注册表
+            //合并到自己本地，拉取的数量作为count
             Applications apps = eurekaClient.getApplications();
             int count = 0;
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
+                    //判断是否可以注册本地
                     if (this.isRegisterable(instance)) {
                         ++count;
                     }

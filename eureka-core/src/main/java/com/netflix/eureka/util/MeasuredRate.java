@@ -24,6 +24,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for getting a count in last X milliseconds.
+ * 设计思路：
+ * 设计两个原子变量，一个用于保留历史数据，一个用于更新当前实时数据，每过一定周期时间，去交换两个变量数据
+ * 读取只读取历史变量数据
+ *
+ *
  *
  * @author Karthik Ranganathan,Greg Kim
  */
@@ -53,7 +58,10 @@ public class MeasuredRate {
                 @Override
                 public void run() {
                     try {
+                        //每一分钟 重置currentBucket计数，并将数量赋值给lastBucket
                         // Zero out the current bucket.
+                        //currentBucket 更新当前1分钟心跳次数
+                        //lastBucket  保存上一分钟心跳次数
                         lastBucket.set(currentBucket.getAndSet(0));
                     } catch (Throwable e) {
                         logger.error("Cannot reset the Measured Rate", e);
