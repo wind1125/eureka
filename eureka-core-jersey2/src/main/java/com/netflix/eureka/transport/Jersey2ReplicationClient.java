@@ -36,6 +36,8 @@ import com.netflix.eureka.resources.ServerCodecs;
 
 /**
  * @author Tomasz Bak
+ * 负责同步其它server行为时的网络请求处理
+ * 如peer1 收到注册请求，会向其它所有server发起注册请求，也就是同步注册数据到其它server
  */
 public class Jersey2ReplicationClient extends AbstractJersey2EurekaHttpClient implements HttpReplicationClient {
 

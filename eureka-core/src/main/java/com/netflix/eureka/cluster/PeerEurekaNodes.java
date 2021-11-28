@@ -86,6 +86,7 @@ public class PeerEurekaNodes {
                 }
         );
         try {
+            //根据配置文件中配置的其它eureka server服务器 url地址 来创建peerEurekaNodes ，代表server信息的实例对象
             updatePeerEurekaNodes(resolvePeerUrls());
             Runnable peersUpdateTask = new Runnable() {
                 @Override
@@ -98,6 +99,7 @@ public class PeerEurekaNodes {
 
                 }
             };
+            //每隔10分钟，执行一次更新PeerEurekaNodes服务实例节点信息
             taskExecutor.scheduleWithFixedDelay(
                     peersUpdateTask,
                     serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
@@ -149,6 +151,7 @@ public class PeerEurekaNodes {
     /**
      * Given new set of replica URLs, destroy {@link PeerEurekaNode}s no longer available, and
      * create new ones.
+     * 根据配置文件中配置的其它eureka server服务器 url地址 来创建peerEurekaNodes ，代表server信息的实例对象
      *
      * @param newPeerUrls peer node URLs; this collection should have local node's URL filtered out
      */
@@ -160,6 +163,7 @@ public class PeerEurekaNodes {
 
         Set<String> toShutdown = new HashSet<>(peerEurekaNodeUrls);
         toShutdown.removeAll(newPeerUrls);
+        //核心变量
         Set<String> toAdd = new HashSet<>(newPeerUrls);
         toAdd.removeAll(peerEurekaNodeUrls);
 
@@ -188,6 +192,7 @@ public class PeerEurekaNodes {
         if (!toAdd.isEmpty()) {
             logger.info("Adding new peer nodes {}", toAdd);
             for (String peerUrl : toAdd) {
+                //创建PeerEurekaNode server对象，并添加到newNodeList 节点列表中
                 newNodeList.add(createPeerEurekaNode(peerUrl));
             }
         }

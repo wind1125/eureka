@@ -195,7 +195,7 @@ public class EurekaBootStrap implements ServletContextListener {
             );
         }
 
-        // 第五部 构造一个eureka server集群的信息
+        // 第五部 代表了一个eureka server集群的信息
         PeerEurekaNodes peerEurekaNodes = getPeerEurekaNodes(
                 registry,
                 eurekaServerConfig,
@@ -221,7 +221,7 @@ public class EurekaBootStrap implements ServletContextListener {
 
         //第七步 处理一些善后事情，从相邻的eureka节点拷贝注册信息
         // Copy registry from neighboring eureka node
-        //从相邻的eureka server节点拷贝注册表
+        //从任意一个其它eureka server节点拷贝注册表
         int registryCount = registry.syncUp();
         registry.openForTraffic(applicationInfoManager, registryCount);
 

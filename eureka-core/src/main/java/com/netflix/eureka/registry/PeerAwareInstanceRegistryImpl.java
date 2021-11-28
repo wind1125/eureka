@@ -205,7 +205,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * Populates the registry information from a peer eureka node. This
      * operation fails over to other nodes until the list is exhausted if the
      * communication fails.
-     * 从一个相邻的eureka server node获取注册表信息
+     * 从任意一个的eureka server node获取注册表信息
      */
     @Override
     public int syncUp() {
@@ -215,12 +215,18 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         for (int i = 0; ((i < serverConfig.getRegistrySyncRetries()) && (count == 0)); i++) {
             if (i > 0) {
                 try {
+                    //如果第一次没有在自己本地eureka client获取到注册表信息
+                    //说明eureka client还没有其它server注册表
+                    //等待一会重试
                     Thread.sleep(serverConfig.getRegistrySyncRetryWaitMs());
                 } catch (InterruptedException e) {
                     logger.warn("Interrupted during registry transfer..");
                     break;
                 }
             }
+            //因为server也会作为eureka client启动,client启动时将从其它server拉取注册表信息，保存在本地
+            //所以这里就直接从本地获取注册表即可
+            //拉取逻辑在DiscoverClint.fetchRegistry(...)方法
             Applications apps = eurekaClient.getApplications();
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
@@ -373,6 +379,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     /*
      * (non-Javadoc)
+     * 处理下线请求
      *
      * @see com.netflix.eureka.registry.InstanceRegistry#cancel(java.lang.String,
      * java.lang.String, long, boolean)
@@ -380,7 +387,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     @Override
     public boolean cancel(final String appName, final String id,
                           final boolean isReplication) {
+        //处理下线请求，本地下先后，在同步其它服务器
         if (super.cancel(appName, id, isReplication)) {
+            //同步其它服务器 下线
             replicateToPeers(Action.Cancel, appName, id, null, null, isReplication);
             synchronized (lock) {
                 if (this.expectedNumberOfRenewsPerMin > 0) {
@@ -412,7 +421,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         if (info.getLeaseInfo() != null && info.getLeaseInfo().getDurationInSecs() > 0) {
             leaseDuration = info.getLeaseInfo().getDurationInSecs();
         }
+        //处理注册请求，如保存到自己本地注册表中
         super.register(info, leaseDuration, isReplication);
+        // 将注册请求 保存到其它所有eureka server服务器上
         replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
     }
 
@@ -425,6 +436,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     public boolean renew(final String appName, final String id, final boolean isReplication) {
         //从这里再执行父类renew
         if (super.renew(appName, id, isReplication)) {
+            //同步其它服务器 续约请求
             replicateToPeers(Action.Heartbeat, appName, id, null, null, isReplication);
             return true;
         }
@@ -623,12 +635,20 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * Replicates all eureka actions to peer eureka nodes except for replication
      * traffic to this node.
      *
+     * @param action
+     * @param appName
+     * @param id
+     * @param info
+     * @param newStatus
+     * @param isReplication 默认为false ,比如注册往其它服务器注册时，是调用其它服务器的register（...）方法，再调用时会通过修改header参数
+     *                      将isReplication修改为true,这样其它服务只会注册表自己本地，不会再往外转发，否则会造成死循环
      */
     private void replicateToPeers(Action action, String appName, String id,
                                   InstanceInfo info /* optional */,
                                   InstanceStatus newStatus /* optional */, boolean isReplication) {
         Stopwatch tracer = action.getTimer().start();
         try {
+            //防止注册等行为死循环
             if (isReplication) {
                 numberOfReplicationsLastMin.increment();
             }
@@ -639,6 +659,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
             for (final PeerEurekaNode node : peerEurekaNodes.getPeerEurekaNodes()) {
                 // If the url represents this host, do not replicate to yourself.
+                //如果是自己则跳过哦
                 if (peerEurekaNodes.isThisMyUrl(node.getServiceUrl())) {
                     continue;
                 }
@@ -670,6 +691,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                     node.heartbeat(appName, id, infoFromRegistry, overriddenStatus, false);
                     break;
                 case Register:
+                    //向其它服务器执行同步注册请求
                     node.register(info);
                     break;
                 case StatusUpdate:
