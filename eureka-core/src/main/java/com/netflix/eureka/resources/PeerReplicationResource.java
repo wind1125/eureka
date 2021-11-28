@@ -66,6 +66,8 @@ public class PeerReplicationResource {
     /**
      * Process batched replication events from peer eureka nodes.
      *
+     * 处理批处理任务 请求
+     * 由 replicationClient.submitBatchUpdates(list); 提交过来请求
      * <p>
      *  The batched events are delegated to underlying resources to generate a
      *  {@link ReplicationListResponse} containing the individual responses to the batched events
@@ -96,6 +98,11 @@ public class PeerReplicationResource {
         }
     }
 
+    /**
+     * 分发批处理请求，根据不同操作类型分发到不同接口，如注册、下线、还是心跳上报等
+     * @param instanceInfo
+     * @return
+     */
     private ReplicationInstanceResponse dispatch(ReplicationInstance instanceInfo) {
         ApplicationResource applicationResource = createApplicationResource(instanceInfo);
         InstanceResource resource = createInstanceResource(instanceInfo, applicationResource);

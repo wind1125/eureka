@@ -64,6 +64,7 @@ class AcceptorExecutor<ID, T> {
     private final BlockingQueue<TaskHolder<ID, T>> singleItemWorkQueue = new LinkedBlockingQueue<>();
 
     private final Semaphore batchWorkRequests = new Semaphore(0);
+    //放将要批量执行的任务列表
     private final BlockingQueue<List<TaskHolder<ID, T>>> batchWorkQueue = new LinkedBlockingQueue<>();
 
     private final TrafficShaper trafficShaper;
@@ -100,6 +101,7 @@ class AcceptorExecutor<ID, T> {
         this.trafficShaper = new TrafficShaper(congestionRetryDelayMs, networkFailureRetryMs);
 
         ThreadGroup threadGroup = new ThreadGroup("eurekaTaskExecutors");
+        // 初始化接收执行器，传入接收处理线程
         this.acceptorThread = new Thread(threadGroup, new AcceptorRunner(), "TaskAcceptor-" + id);
         this.acceptorThread.setDaemon(true);
         this.acceptorThread.start();
@@ -192,6 +194,7 @@ class AcceptorExecutor<ID, T> {
                         scheduleTime = now + trafficShaper.transmissionDelay();
                     }
                     if (scheduleTime <= now) {
+                        //批量分配任务 去执行
                         assignBatchWork();
                         assignSingleItemWork();
                     }
@@ -222,8 +225,10 @@ class AcceptorExecutor<ID, T> {
                 if (!isShutdown.get()) {
                     // If all queues are empty, block for a while on the acceptor queue
                     if (reprocessQueue.isEmpty() && acceptorQueue.isEmpty() && pendingTasks.isEmpty()) {
+                        //将任务从acceptorQueue队列中取出来
                         TaskHolder<ID, T> taskHolder = acceptorQueue.poll(10, TimeUnit.MILLISECONDS);
                         if (taskHolder != null) {
+                            //将任务放入到processingOrder队列中
                             appendTaskHolder(taskHolder);
                         }
                     }
@@ -270,6 +275,7 @@ class AcceptorExecutor<ID, T> {
             }
         }
 
+        //如果没有足够的批量任务去执行，那么单个执行
         void assignSingleItemWork() {
             if (!processingOrder.isEmpty()) {
                 if (singleItemWorkRequests.tryAcquire(1)) {
@@ -313,6 +319,10 @@ class AcceptorExecutor<ID, T> {
             }
         }
 
+        /**
+         * 判断是否有足够的任务 批量去执行
+         * @return
+         */
         private boolean hasEnoughTasksForNextBatch() {
             if (processingOrder.isEmpty()) {
                 return false;
