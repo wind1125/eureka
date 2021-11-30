@@ -34,6 +34,7 @@ import com.google.inject.ImplementedBy;
  * <p>
  * Note that all configurations are not effective at runtime unless and
  * otherwise specified.
+ * 代表eureka 一个实例的配置，可通过这套接口体系来读取
  * </p>
  *
  * @author Karthik Ranganathan

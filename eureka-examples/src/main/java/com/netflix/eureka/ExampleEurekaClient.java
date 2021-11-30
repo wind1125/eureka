@@ -16,16 +16,6 @@
 
 package com.netflix.eureka;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.Date;
-
 import com.netflix.appinfo.ApplicationInfoManager;
 import com.netflix.appinfo.EurekaInstanceConfig;
 import com.netflix.appinfo.InstanceInfo;
@@ -36,12 +26,21 @@ import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.discovery.EurekaClientConfig;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.util.Date;
+
 /**
  * Sample Eureka client that discovers the example service using Eureka and sends requests.
- *
+ * <p>
  * In this example, the program tries to get the example from the EurekaClient, and then
  * makes a REST call to a supported service endpoint
- *
  */
 public class ExampleEurekaClient {
 
@@ -50,7 +49,9 @@ public class ExampleEurekaClient {
 
     private static synchronized ApplicationInfoManager initializeApplicationInfoManager(EurekaInstanceConfig instanceConfig) {
         if (applicationInfoManager == null) {
+            //基于服务实例的配置instanceConfig，构造了一个服务实例（InstanceInfo）
             InstanceInfo instanceInfo = new EurekaConfigBasedInstanceInfoProvider(instanceConfig).get();
+            //基于服务实例的配置和服务实例，构造了一个服务实例管理器
             applicationInfoManager = new ApplicationInfoManager(instanceConfig, instanceInfo);
         }
 
@@ -122,7 +123,12 @@ public class ExampleEurekaClient {
         ExampleEurekaClient sampleClient = new ExampleEurekaClient();
 
         // create the client
+        //基于服务实例的配置和服务实例，构造了一个服务实例管理器
         ApplicationInfoManager applicationInfoManager = initializeApplicationInfoManager(new MyDataCenterInstanceConfig());
+
+        //基于eureka client配置，和服务实例管理器，来构造了一个EurekaClient（DiscoveryClient）
+        // 保存了一些配置，处理服务的注册和注册表的抓取，启动了几个线程池，启动了网络通信组件，启动了一些调度任务，
+        // 注册了监控项
         EurekaClient client = initializeEurekaClient(applicationInfoManager, new DefaultEurekaClientConfig());
 
         // use the client

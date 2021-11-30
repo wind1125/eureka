@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * serialized as specified by the <code>@Serializer</code>.
  * </p>
  *
- * 包装自己作为服务server实例
+ * 代表一个具体eureka服务实例
  *
  * @author Karthik Ranganathan, Greg Kim
  */

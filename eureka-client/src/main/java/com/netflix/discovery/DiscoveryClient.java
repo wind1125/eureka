@@ -417,7 +417,8 @@ public class DiscoveryClient implements EurekaClient {
         } catch (Throwable e) {
             throw new RuntimeException("Failed to initialize DiscoveryClient!", e);
         }
-        //如果获取注册表开关打开，则取抓取，获取注册表数据失败，则走备用注册表
+        //拉取注册表
+        // 如果获取注册表开关打开，则取抓取，获取注册表数据失败，则走备用注册表
         if (clientConfig.shouldFetchRegistry() && !fetchRegistry(false)) {
             fetchRegistryFromBackup();//如果抓取失败逻辑
         }
@@ -1259,6 +1260,11 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Initializes all scheduled tasks.
+     *
+     * 设计思路：DiscoveryClient 类中是因为组件太多，所以在构造函数中只是给组件变量赋值
+     *
+     * 初始化 以及执行 在这里另另起了一个方法，逻辑上分了一下
+     *
      */
     private void initScheduledTasks() {
         if (clientConfig.shouldFetchRegistry()) {

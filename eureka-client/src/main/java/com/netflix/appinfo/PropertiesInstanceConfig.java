@@ -76,7 +76,8 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
 
         appGrpNameFromEnv = ConfigurationManager.getConfigInstance()
                 .getString(FALLBACK_APP_GROUP_KEY, Values.UNKNOWN_APPLICATION);
-
+        //加载并解析eureka-client.properties文件配置
+        //这种设计思路 可借鉴 让父类构造函数去加载各种配置，子类看起来就会变简洁
         this.configInstance = Archaius1Utils.initConfig(CommonConstants.CONFIG_FILE_NAME);
     }
 
