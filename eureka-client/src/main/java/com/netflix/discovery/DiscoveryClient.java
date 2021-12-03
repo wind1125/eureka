@@ -446,6 +446,11 @@ public class DiscoveryClient implements EurekaClient {
                 initTimestampMs, this.getApplications().size());
     }
 
+    /**
+     * ServerEndpoint Endpoint 这个单词在很多框架中，其实就是controller对外提供服务的端口
+     * @param eurekaTransport
+     * @param args
+     */
     private void scheduleServerEndpointTask(EurekaTransport eurekaTransport,
                                             AbstractDiscoveryClientOptionalArgs args) {
 
@@ -511,6 +516,7 @@ public class DiscoveryClient implements EurekaClient {
                 logger.warn("Transport initialization failure", e);
             }
             eurekaTransport.registrationClientFactory = newRegistrationClientFactory;
+            //初始化发起注册的客户端组件
             eurekaTransport.registrationClient = newRegistrationClient;
         }
 
@@ -810,7 +816,7 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Register with the eureka service by making the appropriate REST call.
-     * 注册为eureka service
+     * 发起服务注册，注册为eureka service
      */
     boolean register() throws Throwable {
         logger.info(PREFIX + appPathIdentifier + ": registering service...");
@@ -1305,7 +1311,7 @@ public class DiscoveryClient implements EurekaClient {
                     renewalIntervalInSecs, TimeUnit.SECONDS);
 
             // InstanceInfo replicator
-            // 进行复制实例信息定时复制的调度任务
+            // 进行复制实例信息定时复制的调度任务,服务注册在这个里面
             instanceInfoReplicator = new InstanceInfoReplicator(
                     this,
                     instanceInfo,
@@ -1405,6 +1411,7 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Refresh the current local instanceInfo. Note that after a valid refresh where changes are observed, the
      * isDirty flag on the instanceInfo is set to true
+     * 刷新一下服务实例的配置信息
      */
     void refreshInstanceInfo() {
         applicationInfoManager.refreshDataCenterInfoIfRequired();

@@ -137,6 +137,9 @@ public class InstanceInfo {
     private volatile String hostName;
     private volatile InstanceStatus status = InstanceStatus.UP;
     private volatile InstanceStatus overriddenstatus = InstanceStatus.UNKNOWN;
+    /**
+     * 猜测表示服务本地是否没有注册的一个标识
+     */
     @XStreamOmitField
     private volatile boolean isInstanceInfoDirty = false;
     private volatile LeaseInfo leaseInfo;
@@ -1214,6 +1217,7 @@ public class InstanceInfo {
      * the discovery server on the next heartbeat.
      */
     public synchronized void setIsDirty() {
+        //本地实例信息过期 信息脏了旧了的意思
         isInstanceInfoDirty = true;
         lastDirtyTimestamp = System.currentTimeMillis();
     }

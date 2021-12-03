@@ -195,6 +195,8 @@ public class ApplicationInfoManager {
      * <code>DataCenterInfo</code> is refetched and passed on to the eureka
      * server on next heartbeat.
      *
+     * 验证主机名称和IP是否变化，如果变化则更新一下，我觉的是跟每次部署动态变化主机和IP地址有关系
+     *
      * see {@link InstanceInfo#getHostName()} for explanation on why the hostname is used as the default address
      */
     public void refreshDataCenterInfoIfRequired() {
@@ -203,6 +205,7 @@ public class ApplicationInfoManager {
         String newAddress;
         if (config instanceof RefreshableInstanceConfig) {
             // Refresh data center info, and return up to date address
+            // 从EurekaInstanceConfig中为什么可以取到最新IP呢？
             newAddress = ((RefreshableInstanceConfig) config).resolveDefaultAddress(true);
         } else {
             newAddress = config.getHostName(true);

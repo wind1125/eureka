@@ -1,0 +1,2 @@
+（1）eureka client的服务注册，是在InstanceInfoReplicator中的
+（2）实际发送服务注册请求的是AbstractJersey2EurekaHttpClient，调用了一个restful接口595145130

@@ -25,6 +25,8 @@ import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 
 /**
  * @author Tomasz Bak
+ *
+ * TODO:这个请求服务接口感觉设计比较有意思，有空可以研究
  */
 public abstract class EurekaHttpClientDecorator implements EurekaHttpClient {
 
@@ -51,6 +53,12 @@ public abstract class EurekaHttpClientDecorator implements EurekaHttpClient {
 
     protected abstract <R> EurekaHttpResponse<R> execute(RequestExecutor<R> requestExecutor);
 
+    /**
+     * 在这里像服务端发起服务注册请求
+     * 类设计层次很绕
+     * @param info
+     * @return
+     */
     @Override
     public EurekaHttpResponse<Void> register(final InstanceInfo info) {
         return execute(new RequestExecutor<Void>() {
