@@ -421,9 +421,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         if (info.getLeaseInfo() != null && info.getLeaseInfo().getDurationInSecs() > 0) {
             leaseDuration = info.getLeaseInfo().getDurationInSecs();
         }
-        //处理注册请求，如保存到自己本地注册表中
+        //处理注册请求，保存到自己本地注册表中
         super.register(info, leaseDuration, isReplication);
-        // 将注册请求 保存到其它所有eureka server服务器上
+        // 将注册请求 同步到其它所有eureka server服务器上
         replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
     }
 
@@ -526,7 +526,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     @Override
     public InstanceInfo getNextServerFromEureka(String virtualHostname, boolean secure) {
-        // TODO Auto-generated method stub
+        // 
         return null;
     }
 

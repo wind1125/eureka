@@ -61,6 +61,9 @@ public class InstanceInfo {
     /**
      * {@link InstanceInfo} JSON and XML format for port information does not follow the usual conventions, which
      * makes its mapping complicated. This class represents the wire format for port information.
+     *
+     * Wrapper 包装的使用，即在某某属性、接口、类等基础上增加一些功能或属性
+     * 如：本来就是一个端口号，增加一个PortWrapper，即多了一个是否激活的属性
      */
     public static class PortWrapper {
         private final boolean enabled;
@@ -88,12 +91,13 @@ public class InstanceInfo {
     public static final int DEFAULT_COUNTRY_ID = 1; // US
 
     // The (fixed) instanceId for this instanceInfo. This should be unique within the scope of the appName.
+    //实例ID
     private volatile String instanceId;
-
+    //服务名称
     private volatile String appName;
     @Auto
     private volatile String appGroupName;
-
+    //服务实例IP
     private volatile String ipAddr;
 
     private static final String SID_DEFAULT = "na";
@@ -135,6 +139,7 @@ public class InstanceInfo {
     private volatile boolean isUnsecurePortEnabled = true;
     private volatile DataCenterInfo dataCenterInfo;
     private volatile String hostName;
+    //服务实例状态
     private volatile InstanceStatus status = InstanceStatus.UP;
     private volatile InstanceStatus overriddenstatus = InstanceStatus.UNKNOWN;
     /**
@@ -142,6 +147,7 @@ public class InstanceInfo {
      */
     @XStreamOmitField
     private volatile boolean isInstanceInfoDirty = false;
+    //服务租约信息，如心跳时间等
     private volatile LeaseInfo leaseInfo;
     @Auto
     private volatile Boolean isCoordinatingDiscoveryServer = Boolean.FALSE;
@@ -232,10 +238,10 @@ public class InstanceInfo {
 
     private Map<String, String> removeMetadataMapLegacyValues(Map<String, String> metadata) {
         if (InstanceInfoSerializer.METADATA_COMPATIBILITY_VALUE.equals(metadata.get(InstanceInfoSerializer.METADATA_COMPATIBILITY_KEY))) {
-            // TODO this else if can be removed once the server no longer uses legacy json
+            //  the server no longer uses legacy json
             metadata.remove(InstanceInfoSerializer.METADATA_COMPATIBILITY_KEY);
         } else if (InstanceInfoSerializer.METADATA_COMPATIBILITY_VALUE.equals(metadata.get("class"))) {
-            // TODO this else if can be removed once the server no longer uses legacy xml
+            //  the server no longer uses legacy xml
             metadata.remove("class");
         }
         return metadata;

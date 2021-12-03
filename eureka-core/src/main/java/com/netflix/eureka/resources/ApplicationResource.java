@@ -133,7 +133,7 @@ public class ApplicationResource {
      * Registers information about a particular instance for an
      * {@link com.netflix.discovery.shared.Application}.
      *
-     * 处理服务注册请求
+     * 处理eureka client 服务注册请求 或者 eureka server 同步注册请求
      * @param info
      *            {@link InstanceInfo} information of the instance.
      * @param isReplication
@@ -143,9 +143,10 @@ public class ApplicationResource {
     @POST
     @Consumes({"application/json", "application/xml"})
     public Response addInstance(InstanceInfo info,
-                                @HeaderParam(PeerEurekaNode.HEADER_REPLICATION) String isReplication) {
+                                @HeaderParam(PeerEurekaNode.HEADER_REPLICATION) /* TODO:这个注解在哪里执行解析的呢 */ String isReplication) {
         logger.debug("Registering instance {} (replication={})", info.getId(), isReplication);
         // validate that the instanceinfo contains all the necessary required fields
+        //设计好处：接口验证返回信息 添加这种验证，必填字段验证，并返回code码比较好
         if (isBlank(info.getId())) {
             return Response.status(400).entity("Missing instanceId").build();
         } else if (isBlank(info.getHostName())) {

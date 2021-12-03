@@ -45,7 +45,7 @@ public class StatusFilter implements Filter {
      * @see javax.servlet.Filter#destroy()
      */
     public void destroy() {
-        // TODO Auto-generated method stub
+        // 
 
     }
 

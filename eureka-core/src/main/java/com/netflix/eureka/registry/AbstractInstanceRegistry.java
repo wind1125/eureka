@@ -76,8 +76,28 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
     private static final Logger logger = LoggerFactory.getLogger(AbstractInstanceRegistry.class);
 
     private static final String[] EMPTY_STR_ARRAY = new String[0];
+    /**
+     * 注册表核心数据结构
+     * key : 服务名称，如ServerA
+     * Map : 服务实例一般1-N 个
+     *         key: 服务实例Id
+     *         value: 持有服务实例信息对象的 租约对象
+     *
+     * 例如：
+     * {
+     * “ServiceA”: {
+     * “001”: Lease<InstanceInfo>,
+     * “002”: Lease<InstanceInfo>,
+     * “003”: Lease<InstanceInfo>
+     * },
+     * “ServiceB”: {
+     * “001”: Lease<InstanceInfo>
+     * }
+     * }
+     */
     private final ConcurrentHashMap<String, Map<String, Lease<InstanceInfo>>> registry
             = new ConcurrentHashMap<String, Map<String, Lease<InstanceInfo>>>();
+
     protected Map<String, RemoteRegionRegistry> regionNameVSRemoteRegistry = new HashMap<String, RemoteRegionRegistry>();
     protected final ConcurrentMap<String, InstanceStatus> overriddenInstanceStatusMap = CacheBuilder
             .newBuilder().initialCapacity(500)
@@ -192,6 +212,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
      */
     public void register(InstanceInfo registrant, int leaseDuration, boolean isReplication) {
         try {
+            //注册是写数据，为什么上读锁呢？为了有线程写入时，其它线程可以读取？
             read.lock();
             Map<String, Lease<InstanceInfo>> gMap = registry.get(registrant.getAppName());
             REGISTER.increment(isReplication);
@@ -202,8 +223,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     gMap = gNewMap;
                 }
             }
+            //获取服务实例
             Lease<InstanceInfo> existingLease = gMap.get(registrant.getId());
             // Retain the last dirty timestamp without overwriting it, if there is already a lease
+            //服务实例已存在，第一次不会注册吧？
             if (existingLease != null && (existingLease.getHolder() != null)) {
                 Long existingLastDirtyTimestamp = existingLease.getHolder().getLastDirtyTimestamp();
                 Long registrationLastDirtyTimestamp = registrant.getLastDirtyTimestamp();
@@ -232,9 +255,11 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 logger.debug("No previous lease information found; it is new registration");
             }
             Lease<InstanceInfo> lease = new Lease<InstanceInfo>(registrant, leaseDuration);
+            //如果注册服务已经存在，那么服务运行时间继续使用已存在实例的世界
             if (existingLease != null) {
                 lease.setServiceUpTimestamp(existingLease.getServiceUpTimestamp());
             }
+            //完成注册
             gMap.put(registrant.getId(), lease);
             synchronized (recentRegisteredQueue) {
                 recentRegisteredQueue.add(new Pair<Long, String>(
