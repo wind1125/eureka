@@ -16,52 +16,11 @@
 
 package com.netflix.discovery;
 
-import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRATION_PREFIX;
-import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRY_PREFIX;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import javax.annotation.Nullable;
-import javax.annotation.PreDestroy;
-import javax.inject.Provider;
-import javax.inject.Singleton;
-import javax.ws.rs.core.Response.Status;
-
-import com.netflix.discovery.shared.transport.jersey.Jersey1DiscoveryClientOptionalArgs;
-import com.netflix.discovery.shared.transport.jersey.Jersey1TransportClientFactories;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Inject;
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.HealthCheckCallback;
-import com.netflix.appinfo.HealthCheckCallbackToHandlerBridge;
-import com.netflix.appinfo.HealthCheckHandler;
-import com.netflix.appinfo.InstanceInfo;
+import com.netflix.appinfo.*;
 import com.netflix.appinfo.InstanceInfo.ActionType;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.discovery.endpoint.EndpointUtils;
@@ -69,19 +28,35 @@ import com.netflix.discovery.shared.Application;
 import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.resolver.ClosableResolver;
 import com.netflix.discovery.shared.resolver.aws.ApplicationsResolver;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
-import com.netflix.discovery.shared.transport.EurekaHttpClientFactory;
-import com.netflix.discovery.shared.transport.EurekaHttpClients;
-import com.netflix.discovery.shared.transport.EurekaHttpResponse;
-import com.netflix.discovery.shared.transport.EurekaTransportConfig;
-import com.netflix.discovery.shared.transport.TransportClientFactory;
+import com.netflix.discovery.shared.transport.*;
 import com.netflix.discovery.shared.transport.jersey.EurekaJerseyClient;
+import com.netflix.discovery.shared.transport.jersey.Jersey1DiscoveryClientOptionalArgs;
+import com.netflix.discovery.shared.transport.jersey.Jersey1TransportClientFactories;
 import com.netflix.discovery.shared.transport.jersey.TransportClientFactories;
 import com.netflix.discovery.util.ThresholdLevelsMetric;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.monitor.Stopwatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
+import javax.inject.Provider;
+import javax.inject.Singleton;
+import javax.ws.rs.core.Response.Status;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRATION_PREFIX;
+import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRY_PREFIX;
 
 /**
  * The class that is instrumental for interactions with <tt>Eureka Server</tt>.
@@ -105,7 +80,6 @@ import com.netflix.servo.monitor.Stopwatch;
  *
  * @author Karthik Ranganathan, Greg Kim
  * @author Spencer Gibb
- *
  */
 @Singleton
 public class DiscoveryClient implements EurekaClient {
@@ -148,6 +122,10 @@ public class DiscoveryClient implements EurekaClient {
     private final AtomicReference<Applications> localRegionApps = new AtomicReference<Applications>();
     private final Lock fetchRegistryUpdateLock = new ReentrantLock();
     // monotonically increasing generation counter to ensure stale threads do not reset registry to an older version
+    //版本号保证当前注册表在执行拉取并更新期间，不会被其它线程同时更新为其它线程的结果
+    // 比如线程1 发起拉取注册表请求，还未返回结果哦，这时线程2拉取注册表请求并返回了结果哦，那么线程1，再获取到结果时会发现
+    //版本号变了，说明已经有人更新了，自己再更新就会更新为旧的数据，所以就不更新了
+    //TODO:设计思路学习 版本号设计
     private final AtomicLong fetchRegistryGeneration;
     private final ApplicationInfoManager applicationInfoManager;
     private final InstanceInfo instanceInfo;
@@ -312,7 +290,7 @@ public class DiscoveryClient implements EurekaClient {
             this.healthCheckHandlerProvider = null;
             this.preRegistrationHandler = null;
         }
-        
+
         this.applicationInfoManager = applicationInfoManager;
         InstanceInfo myInfo = applicationInfoManager.getInfo();
 
@@ -417,7 +395,7 @@ public class DiscoveryClient implements EurekaClient {
         } catch (Throwable e) {
             throw new RuntimeException("Failed to initialize DiscoveryClient!", e);
         }
-        //拉取注册表
+        //这里拉取注册表
         // 如果获取注册表开关打开，则取抓取，获取注册表数据失败，则走备用注册表
         if (clientConfig.shouldFetchRegistry() && !fetchRegistry(false)) {
             fetchRegistryFromBackup();//如果抓取失败逻辑
@@ -448,13 +426,14 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * ServerEndpoint Endpoint 这个单词在很多框架中，其实就是controller对外提供服务的端口
+     *
      * @param eurekaTransport
      * @param args
      */
     private void scheduleServerEndpointTask(EurekaTransport eurekaTransport,
                                             AbstractDiscoveryClientOptionalArgs args) {
 
-            
+
         Collection<?> additionalFilters = args == null
                 ? Collections.emptyList()
                 : args.additionalFilters;
@@ -462,12 +441,12 @@ public class DiscoveryClient implements EurekaClient {
         EurekaJerseyClient providedJerseyClient = args == null
                 ? null
                 : args.eurekaJerseyClient;
-        
+
         TransportClientFactories argsTransportClientFactories = null;
         if (args != null && args.getTransportClientFactories() != null) {
             argsTransportClientFactories = args.getTransportClientFactories();
         }
-        
+
         // Ignore the raw types warnings since the client filter interface changed between jersey 1/2
         @SuppressWarnings("rawtypes")
         TransportClientFactories transportClientFactories = argsTransportClientFactories == null
@@ -547,7 +526,7 @@ public class DiscoveryClient implements EurekaClient {
     public EurekaClientConfig getEurekaClientConfig() {
         return clientConfig;
     }
-    
+
     @Override
     public ApplicationInfoManager getApplicationInfoManager() {
         return applicationInfoManager;
@@ -612,13 +591,12 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Register {@link HealthCheckCallback} with the eureka client.
-     *
+     * <p>
      * Once registered, the eureka client will invoke the
      * {@link HealthCheckCallback} in intervals specified by
      * {@link EurekaClientConfig#getInstanceInfoReplicationIntervalSeconds()}.
      *
      * @param callback app specific healthcheck.
-     *
      * @deprecated Use
      */
     @Deprecated
@@ -659,10 +637,8 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Gets the list of instances matching the given VIP Address.
      *
-     * @param vipAddress
-     *            - The VIP address to match the instances for.
-     * @param secure
-     *            - true if it is a secure vip address, false otherwise
+     * @param vipAddress - The VIP address to match the instances for.
+     * @param secure     - true if it is a secure vip address, false otherwise
      * @return - The list of {@link InstanceInfo} objects matching the criteria
      */
     @Override
@@ -674,10 +650,9 @@ public class DiscoveryClient implements EurekaClient {
      * Gets the list of instances matching the given VIP Address in the passed region.
      *
      * @param vipAddress - The VIP address to match the instances for.
-     * @param secure - true if it is a secure vip address, false otherwise
-     * @param region - region from which the instances are to be fetched. If <code>null</code> then local region is
-     *               assumed.
-     *
+     * @param secure     - true if it is a secure vip address, false otherwise
+     * @param region     - region from which the instances are to be fetched. If <code>null</code> then local region is
+     *                   assumed.
      * @return - The list of {@link InstanceInfo} objects matching the criteria, empty list if not instances found.
      */
     @Override
@@ -713,12 +688,9 @@ public class DiscoveryClient implements EurekaClient {
      * application name if both of them are not null. If one of them is null,
      * then that criterion is completely ignored for matching instances.
      *
-     * @param vipAddress
-     *            - The VIP address to match the instances for.
-     * @param appName
-     *            - The applicationName to match the instances for.
-     * @param secure
-     *            - true if it is a secure vip address, false otherwise.
+     * @param vipAddress - The VIP address to match the instances for.
+     * @param appName    - The applicationName to match the instances for.
+     * @param secure     - true if it is a secure vip address, false otherwise.
      * @return - The list of {@link InstanceInfo} objects matching the criteria.
      */
     @Override
@@ -793,8 +765,7 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Get all applications registered with a specific eureka service.
      *
-     * @param serviceUrl
-     *            - The string representation of the service url.
+     * @param serviceUrl - The string representation of the service url.
      * @return - The registry information containing all applications.
      */
     @Override
@@ -860,13 +831,12 @@ public class DiscoveryClient implements EurekaClient {
     }
 
     /**
-     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
-     *
-     * Get the list of all eureka service urls from properties file for the eureka client to talk to.
-     *
-     * @param instanceZone The zone in which the client resides
+     * @param instanceZone   The zone in which the client resides
      * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise
      * @return The list of all eureka service urls for the eureka client to talk to
+     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
+     * <p>
+     * Get the list of all eureka service urls from properties file for the eureka client to talk to.
      */
     @Deprecated
     @Override
@@ -916,7 +886,7 @@ public class DiscoveryClient implements EurekaClient {
      */
     void unregister() {
         // It can be null if shouldRegisterWithEureka == false
-        if(eurekaTransport != null && eurekaTransport.registrationClient != null) {
+        if (eurekaTransport != null && eurekaTransport.registrationClient != null) {
             try {
                 logger.info("Unregistering ...");
                 EurekaHttpResponse<Void> httpResponse = eurekaTransport.registrationClient.cancel(instanceInfo.getAppName(), instanceInfo.getId());
@@ -936,7 +906,6 @@ public class DiscoveryClient implements EurekaClient {
      * </p>
      *
      * @param forceFullRegistryFetch Forces a full registry fetch.
-     *
      * @return true if the registry was fetched
      */
     private boolean fetchRegistry(boolean forceFullRegistryFetch) {
@@ -949,7 +918,7 @@ public class DiscoveryClient implements EurekaClient {
 
             if (clientConfig.shouldDisableDelta()
                     || (!Strings.isNullOrEmpty(clientConfig.getRegistryRefreshSingleVipAddress()))
-                    || forceFullRegistryFetch //增量抓取时 为false
+                    || forceFullRegistryFetch
                     || (applications == null)  //第一次调用全量走这里，第二次就不为null
                     || (applications.getRegisteredApplications().size() == 0)
                     || (applications.getVersion() == -1)) //Client application does not have latest library supporting delta
@@ -1019,6 +988,7 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * 验证hash值
+     *
      * @param applications
      * @return
      */
@@ -1036,14 +1006,15 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Gets the full registry information from the eureka server and stores it locally.
      * When applying the full registry, the following flow is observed:
-     *
+     * <p>
      * if (update generation have not advanced (due to another thread))
-     *   atomically set the registry to the new registry
+     * atomically set the registry to the new registry
      * fi
+     * <p>
+     * 获取并存储全量注册表信息，时机eureka client第一次启动时全量抓取注册表
      *
      * @return the full registry information.
-     * @throws Throwable
-     *             on error.
+     * @throws Throwable on error.
      */
     private void getAndStoreFullRegistry() throws Throwable {
         long currentUpdateGeneration = fetchRegistryGeneration.get();
@@ -1061,8 +1032,9 @@ public class DiscoveryClient implements EurekaClient {
 
         if (apps == null) {
             logger.error("The application is null for some reason. Not storing this information");
-        }//拉取版本号哦控制
+        }//全量拉取版本号控制，避免拉取期间被别人修改了
         else if (fetchRegistryGeneration.compareAndSet(currentUpdateGeneration, currentUpdateGeneration + 1)) {
+            //更新到本地缓存
             localRegionApps.set(this.filterAndShuffle(apps));
             logger.debug("Got full registry with apps hashcode {}", apps.getAppsHashCode());
         } else {
@@ -1073,11 +1045,11 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Get the delta registry information from the eureka server and update it locally.
      * When applying the delta, the following flow is observed:
-     *
+     * <p>
      * if (update generation have not advanced (due to another thread))
-     *   atomically try to: update application with the delta and get reconcileHashCode
-     *   abort entire processing otherwise
-     *   do reconciliation if reconcileHashCode clash
+     * atomically try to: update application with the delta and get reconcileHashCode
+     * abort entire processing otherwise
+     * do reconciliation if reconcileHashCode clash
      * fi
      *
      * @return the client response
@@ -1137,21 +1109,18 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Reconcile the eureka server and client registry information and logs the differences if any.
      * When reconciling, the following flow is observed:
-     *
+     * <p>
      * make a remote call to the server for the full registry
      * calculate and log differences
      * if (update generation have not advanced (due to another thread))
-     *   atomically set the registry to the new registry
+     * atomically set the registry to the new registry
      * fi
      *
-     * @param delta
-     *            the last delta registry information received from the eureka
-     *            server.
-     * @param reconcileHashCode
-     *            the hashcode generated by the server for reconciliation.
+     * @param delta             the last delta registry information received from the eureka
+     *                          server.
+     * @param reconcileHashCode the hashcode generated by the server for reconciliation.
      * @return ClientResponse the HTTP response object.
-     * @throws Throwable
-     *             on any error.
+     * @throws Throwable on any error.
      */
     private void reconcileAndLogDifference(Applications delta, String reconcileHashCode) throws Throwable {
         logger.debug("The Reconcile hashcodes do not match, client : {}, server : {}. Getting the full registry",
@@ -1206,9 +1175,8 @@ public class DiscoveryClient implements EurekaClient {
      * local cache.
      * 本地注册表与拉取的增量注册表合并
      *
-     * @param delta
-     *            the delta information received from eureka server in the last
-     *            poll cycle.
+     * @param delta the delta information received from eureka server in the last
+     *              poll cycle.
      */
     private void updateDelta(Applications delta) {
         int deltaCount = 0;
@@ -1266,11 +1234,10 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * Initializes all scheduled tasks.
-     *
+     * <p>
      * 设计思路：DiscoveryClient 类中是因为组件太多，所以在构造函数中只是给组件变量赋值
-     *
+     * <p>
      * 初始化 以及执行 在这里另另起了一个方法，逻辑上分了一下
-     *
      */
     private void initScheduledTasks() {
         if (clientConfig.shouldFetchRegistry()) {
@@ -1367,16 +1334,15 @@ public class DiscoveryClient implements EurekaClient {
     }
 
     /**
+     * @param instanceZone   The zone in which the client resides.
+     * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise.
+     * @return The list of all eureka service urls for the eureka client to talk to.
      * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
-     *
+     * <p>
      * Get the list of all eureka service urls from DNS for the eureka client to
      * talk to. The client picks up the service url from its zone and then fails over to
      * other zones randomly. If there are multiple servers in the same zone, the client once
      * again picks one randomly. This way the traffic will be distributed in the case of failures.
-     *
-     * @param instanceZone The zone in which the client resides.
-     * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise.
-     * @return The list of all eureka service urls for the eureka client to talk to.
      */
     @Deprecated
     @Override
@@ -1394,13 +1360,12 @@ public class DiscoveryClient implements EurekaClient {
     }
 
     /**
-     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
-     *
-     * Get the list of EC2 URLs given the zone name.
-     *
      * @param dnsName The dns name of the zone-specific CNAME
-     * @param type CNAME or EIP that needs to be retrieved
+     * @param type    CNAME or EIP that needs to be retrieved
      * @return The list of EC2 URLs associated with the dns name
+     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
+     * <p>
+     * Get the list of EC2 URLs given the zone name.
      */
     @Deprecated
     public static Set<String> getEC2DiscoveryUrlsFromZone(String dnsName,
@@ -1471,7 +1436,6 @@ public class DiscoveryClient implements EurekaClient {
 
     /**
      * The task that fetches the registry information at specified intervals.
-     *
      */
     class CacheRefreshThread implements Runnable {
         public void run() {
@@ -1531,9 +1495,9 @@ public class DiscoveryClient implements EurekaClient {
             }
         } catch (Throwable e) {
             logger.error("Cannot fetch registry from server", e);
-        }        
+        }
     }
-    
+
     /**
      * Fetch the registry information from back up registry if all eureka server
      * urls are unreachable.
@@ -1592,8 +1556,7 @@ public class DiscoveryClient implements EurekaClient {
      * receiving traffic during start ups.
      * </p>
      *
-     * @param apps
-     *            The applications that needs to be filtered and shuffled.
+     * @param apps The applications that needs to be filtered and shuffled.
      * @return The applications after the filter and the shuffle.
      */
     private Applications filterAndShuffle(Applications apps) {
@@ -1631,7 +1594,7 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Invoked every time the local registry cache is refreshed (whether changes have
      * been detected or not).
-     *
+     * <p>
      * Subclasses may override this method to implement custom behavior if needed.
      */
     protected void onCacheRefreshed() {
@@ -1651,13 +1614,11 @@ public class DiscoveryClient implements EurekaClient {
 
 
     /**
-     * @deprecated see {@link com.netflix.appinfo.InstanceInfo#getZone(String[], com.netflix.appinfo.InstanceInfo)}
-     *
-     * Get the zone that a particular instance is in.
-     *
-     * @param myInfo
-     *            - The InstanceInfo object of the instance.
+     * @param myInfo - The InstanceInfo object of the instance.
      * @return - The zone in which the particular instance belongs to.
+     * @deprecated see {@link com.netflix.appinfo.InstanceInfo#getZone(String[], com.netflix.appinfo.InstanceInfo)}
+     * <p>
+     * Get the zone that a particular instance is in.
      */
     @Deprecated
     public static String getZone(InstanceInfo myInfo) {
@@ -1666,11 +1627,10 @@ public class DiscoveryClient implements EurekaClient {
     }
 
     /**
-     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
-     *
-     * Get the region that this particular instance is in.
-     *
      * @return - The region in which the particular instance belongs to.
+     * @deprecated see replacement in {@link com.netflix.discovery.endpoint.EndpointUtils}
+     * <p>
+     * Get the region that this particular instance is in.
      */
     @Deprecated
     public static String getRegion() {

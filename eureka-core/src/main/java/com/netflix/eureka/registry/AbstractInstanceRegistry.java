@@ -785,6 +785,8 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         }
         Applications apps = new Applications();
         apps.setVersion(1L);
+        //循环注册表结构，生成Applications封装类，返回给多级缓存，存起来
+        //缓存数据其实对原始数据做了简单封装
         for (Entry<String, Map<String, Lease<InstanceInfo>>> entry : registry.entrySet()) {
             Application app = null;
 

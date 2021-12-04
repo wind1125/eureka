@@ -50,7 +50,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The class that wraps all the registry information returned by eureka server.
- *
+ * 对注册表缓存数据的一个封装类，扩展了各种结构方便使用
+ * 比如数据是否变化的 hashCode 码
  * <p>
  * Note that the registry information is fetched from eureka server as specified
  * in {@link EurekaClientConfig#getRegistryFetchIntervalSeconds()}.  Once the
