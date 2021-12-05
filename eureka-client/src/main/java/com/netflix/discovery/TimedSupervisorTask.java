@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
  * Wrapped subtasks must be thread safe.
  *
  * 实现一个任务执行成功后，才再次执行，每个一段时间执行，设计思路提取
- *
+ * TODO:学习设计思路，管理子线程池，为什么要管理呢？
  * @author David Qiang Liu
  */
 public class TimedSupervisorTask extends TimerTask {

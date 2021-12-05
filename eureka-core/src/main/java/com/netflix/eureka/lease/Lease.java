@@ -44,7 +44,9 @@ public class Lease<T> {
     private long registrationTimestamp;
     private long serviceUpTimestamp;
     // Make it volatile so that the expiration task would see this quicker
+    //服务实例上次过来更新的时间戳
     private volatile long lastUpdateTimestamp;
+    //默认为90 * 1000 秒
     private long duration;
 
     public Lease(T r, int durationInSecs) {
@@ -59,6 +61,8 @@ public class Lease<T> {
      * Renew the lease, use renewal duration if it was specified by the
      * associated {@link T} during registration, otherwise default duration is
      * {@link #DEFAULT_DURATION_IN_SECS}.
+     * 当前时间戳 + 90*1000 毫秒
+     *
      */
     public void renew() {
         lastUpdateTimestamp = System.currentTimeMillis() + duration;
