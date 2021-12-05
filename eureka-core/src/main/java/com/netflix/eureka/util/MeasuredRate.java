@@ -15,20 +15,18 @@
  */
 package com.netflix.eureka.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Utility class for getting a count in last X milliseconds.
- * 设计思路：
+ * TODO:学习设计思路：计算上一分钟心跳次数
  * 设计两个原子变量，一个用于保留历史数据，一个用于更新当前实时数据，每过一定周期时间，去交换两个变量数据
  * 读取只读取历史变量数据
- *
- *
  *
  * @author Karthik Ranganathan,Greg Kim
  */
@@ -89,6 +87,7 @@ public class MeasuredRate {
 
     /**
      * Increments the count in the current sample interval.
+     * 每次发送续约 也就是心跳时调用
      */
     public void increment() {
         currentBucket.incrementAndGet();

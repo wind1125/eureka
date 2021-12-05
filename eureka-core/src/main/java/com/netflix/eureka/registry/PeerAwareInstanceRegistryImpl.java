@@ -139,6 +139,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         this.numberOfReplicationsLastMin.start();
         this.peerEurekaNodes = peerEurekaNodes;
         initializedResponseCache();
+        //更新续约阈值 每15分钟触发一下
         scheduleRenewalThresholdUpdateTask();
         initRemoteRegionRegistry();
 
@@ -237,11 +238,16 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     @Override
     public void openForTraffic(ApplicationInfoManager applicationInfoManager, int count) {
         // Renewals happen every 30 seconds and for a minute it should be a factor of 2.
+        //期望的心跳次数首次认为 实例个数 * 2 ，因为30s一个心跳 ，这个乘以2 写死了
+        //假设20个实例，那么expectedNumberOfRenewsPerMin = 20*2=40
         this.expectedNumberOfRenewsPerMin = count * 2;
+        // numberOfRenewsPerMinThreshold = 40 * 0.85 = 34 即期望心跳数
         this.numberOfRenewsPerMinThreshold =
                 (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
+
         logger.info("Got " + count + " instances from neighboring DS node");
         logger.info("Renew threshold is: " + numberOfRenewsPerMinThreshold);
+
         this.startupTime = System.currentTimeMillis();
         if (count > 0) {
             this.peerInstancesTransferEmptyOnStartup = false;
@@ -382,8 +388,10 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             //同步其它服务器 下线
             replicateToPeers(Action.Cancel, appName, id, null, null, isReplication);
             synchronized (lock) {
+                // 服务下线时，从新计算期望每分钟心跳次数和期望每分钟心跳次数阈值
                 if (this.expectedNumberOfRenewsPerMin > 0) {
                     // Since the client wants to cancel it, reduce the threshold (1 for 30 seconds, 2 for a minute)
+                    // 每次下线一个服务实例即少了2个心跳
                     this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin - 2;
                     this.numberOfRenewsPerMinThreshold =
                             (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
@@ -484,10 +492,13 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     @Override
     public boolean isLeaseExpirationEnabled() {
+        //是否开启自动保护机制，默认true
         if (!isSelfPreservationModeEnabled()) {
             // The self preservation mode is disabled, hence allowing the instances to expire.
             return true;
         }
+        //numberOfRenewsPerMinThreshold 期望的每分钟发送多少心跳过来
+        //getNumOfRenewsInLastMin() 上一分钟 实际发送过来了多少次心跳
         return numberOfRenewsPerMinThreshold > 0 && getNumOfRenewsInLastMin() > numberOfRenewsPerMinThreshold;
     }
 
@@ -541,6 +552,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             synchronized (lock) {
                 // Update threshold only if the threshold is greater than the
                 // current expected threshold of if the self preservation is disabled.
+                // 更新expectedNumberOfRenewsPerMin 和 numberOfRenewsPerMinThreshold 值
                 if ((count * 2) > (serverConfig.getRenewalPercentThreshold() * numberOfRenewsPerMinThreshold)
                         || (!this.isSelfPreservationModeEnabled())) {
                     this.expectedNumberOfRenewsPerMin = count * 2;
