@@ -1052,6 +1052,8 @@ public class DiscoveryClient implements EurekaClient {
      * do reconciliation if reconcileHashCode clash
      * fi
      *
+     * 获取增量注册表
+     *
      * @return the client response
      * @throws Throwable on error
      */
@@ -1084,6 +1086,7 @@ public class DiscoveryClient implements EurekaClient {
                 logger.warn("Cannot acquire update lock, aborting getAndUpdateDelta");
             }
             // There is a diff in number of instances for some reason
+            //如果本地全量注册表的 一致hashCode 和 增量获取的全量hashCode不一致，则从新全量拉取注册表
             if (!reconcileHashCode.equals(delta.getAppsHashCode()) || clientConfig.shouldLogDeltaDiff()) {
                 reconcileAndLogDifference(delta, reconcileHashCode);  // this makes a remoteCall
             }
@@ -1129,7 +1132,7 @@ public class DiscoveryClient implements EurekaClient {
         RECONCILE_HASH_CODES_MISMATCH.increment();
 
         long currentUpdateGeneration = fetchRegistryGeneration.get();
-
+        //重新获取全量注册表
         EurekaHttpResponse<Applications> httpResponse = clientConfig.getRegistryRefreshSingleVipAddress() == null
                 ? eurekaTransport.queryClient.getApplications(remoteRegionsRef.get())
                 : eurekaTransport.queryClient.getVip(clientConfig.getRegistryRefreshSingleVipAddress(), remoteRegionsRef.get());
@@ -1159,6 +1162,7 @@ public class DiscoveryClient implements EurekaClient {
         }
 
         if (fetchRegistryGeneration.compareAndSet(currentUpdateGeneration, currentUpdateGeneration + 1)) {
+            //用全量注册表 更新本地注册表
             localRegionApps.set(this.filterAndShuffle(serverApps));
             getApplications().setVersion(delta.getVersion());
             logger.debug(
@@ -1174,6 +1178,7 @@ public class DiscoveryClient implements EurekaClient {
      * Updates the delta information fetches from the eureka server into the
      * local cache.
      * 本地注册表与拉取的增量注册表合并
+     * 根据ActionType行为来合并
      *
      * @param delta the delta information received from eureka server in the last
      *              poll cycle.

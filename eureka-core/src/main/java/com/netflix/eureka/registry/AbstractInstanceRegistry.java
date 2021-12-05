@@ -142,6 +142,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
 
         this.renewsLastMin = new MeasuredRate(1000 * 60 * 1);
 
+        //30s更新一次，删除队列中时间大于3分钟的实例
         this.deltaRetentionTimer.schedule(getDeltaRetentionTask(),
                 serverConfig.getDeltaRetentionTimerIntervalInMs(),
                 serverConfig.getDeltaRetentionTimerIntervalInMs());
@@ -290,6 +291,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 lease.serviceUp();
             }
             registrant.setActionType(ActionType.ADDED);
+            //最近3分钟注册表变化实例 添加
             recentlyChangedQueue.add(new RecentlyChangedItem(lease));
             registrant.setLastUpdatedTimestamp();
             invalidateCache(registrant.getAppName(), registrant.getVIPAddress(), registrant.getSecureVipAddress());
@@ -355,6 +357,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 if (instanceInfo != null) {
                     //将服务实例信息放入最近改变的队列中
                     instanceInfo.setActionType(ActionType.DELETED);
+                    //最近3分钟注册表变化实例 删除
                     recentlyChangedQueue.add(new RecentlyChangedItem(leaseToCancel));
                     //最近一次变化时间戳
                     instanceInfo.setLastUpdatedTimestamp();
@@ -540,6 +543,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                         info.setLastDirtyTimestamp(replicaDirtyTimestamp);
                     }
                     info.setActionType(ActionType.MODIFIED);
+                    //最近3分钟注册表变化实例 修改
                     recentlyChangedQueue.add(new RecentlyChangedItem(lease));
                     info.setLastUpdatedTimestamp();
                     invalidateCache(appName, info.getVIPAddress(), info.getSecureVipAddress());
@@ -601,6 +605,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                         info.setLastDirtyTimestamp(replicaDirtyTimestamp);
                     }
                     info.setActionType(ActionType.MODIFIED);
+                    //最近3分钟注册表变化实例 删除
                     recentlyChangedQueue.add(new RecentlyChangedItem(lease));
                     info.setLastUpdatedTimestamp();
                     invalidateCache(appName, info.getVIPAddress(), info.getSecureVipAddress());
@@ -921,6 +926,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             Iterator<RecentlyChangedItem> iter = this.recentlyChangedQueue.iterator();
             logger.debug("The number of elements in the delta queue is :"
                     + this.recentlyChangedQueue.size());
+            //取出来放到apps变量中
             while (iter.hasNext()) {
                 Lease<InstanceInfo> lease = iter.next().getLeaseInfo();
                 InstanceInfo instanceInfo = lease.getHolder();
@@ -956,7 +962,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     }
                 }
             }
-
+            //计算全部注册表数据的校验hashCode值，返回给eureka client端 同本地缓存比较是否相同
             Applications allApps = getApplications(!disableTransparentFallback);
             apps.setAppsHashCode(allApps.getReconcileHashCode());
             return apps;
