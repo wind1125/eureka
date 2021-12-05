@@ -17,15 +17,16 @@
 package com.netflix.eureka.registry;
 
 import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.shared.Application;
 import com.netflix.eureka.cluster.PeerEurekaNodes;
 import com.netflix.eureka.resources.ASGResource;
-
-import java.util.List;
 
 /**
  * @author Tomasz Bak
  * 同等伙伴能意识到服务实例注册表，即包括其它服务实例的注册表信息
+ * <p>
+ * 理解：
+ * 该接口继承InstanceRegistry，表明除了实例注册表该具有的功能外，还具有相邻eureka server注册表之间该具有的功能
+ * 比如 从相邻server 的注册表拉取注册表数据 syncUp()
  */
 public interface PeerAwareInstanceRegistry extends InstanceRegistry {
 
@@ -46,16 +47,17 @@ public interface PeerAwareInstanceRegistry extends InstanceRegistry {
      * get the registry information from the peer eureka nodes at start up.
      *
      * @return false - if the instances count from a replica transfer returned
-     *         zero and if the wait time has not elapsed, otherwise returns true
+     * zero and if the wait time has not elapsed, otherwise returns true
      */
-     boolean shouldAllowAccess(boolean remoteRegionRequired);
+    boolean shouldAllowAccess(boolean remoteRegionRequired);
 
     /**
      * 服务注册完行为
-     * @param info 服务实例信息
+     *
+     * @param info          服务实例信息
      * @param isReplication 是否同步注册行为
      */
-     void register(InstanceInfo info, boolean isReplication);
+    void register(InstanceInfo info, boolean isReplication);
 
-     void statusUpdate(final String asgName, final ASGResource.ASGStatus newStatus, final boolean isReplication);
+    void statusUpdate(final String asgName, final ASGResource.ASGStatus newStatus, final boolean isReplication);
 }
