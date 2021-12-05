@@ -39,7 +39,7 @@ public class Lease<T> {
     public static final int DEFAULT_DURATION_IN_SECS = 90;
 
     private T holder;
-    //清除时间
+    //设置清除服务实例的时间戳
     private long evictionTimestamp;
     private long registrationTimestamp;
     private long serviceUpTimestamp;
@@ -71,6 +71,7 @@ public class Lease<T> {
 
     /**
      * Cancels the lease by updating the eviction time.
+     * 设置清除服务实例的时间戳
      */
     public void cancel() {
         if (evictionTimestamp <= 0) {

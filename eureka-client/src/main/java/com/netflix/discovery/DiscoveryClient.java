@@ -847,7 +847,9 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Shuts down Eureka Client. Also sends a deregistration request to the
      * eureka server.
-     * 关闭开启入口
+     * 关闭eureka client,并且向eureka server发送一个下线请求
+     *
+     * 猜测这里可能会由spring cloud外部starter 等封装类来调用
      */
     @PreDestroy
     @Override
@@ -889,6 +891,7 @@ public class DiscoveryClient implements EurekaClient {
         if (eurekaTransport != null && eurekaTransport.registrationClient != null) {
             try {
                 logger.info("Unregistering ...");
+                //发起下线请求
                 EurekaHttpResponse<Void> httpResponse = eurekaTransport.registrationClient.cancel(instanceInfo.getAppName(), instanceInfo.getId());
                 logger.info(PREFIX + appPathIdentifier + " - deregister  status: " + httpResponse.getStatusCode());
             } catch (Exception e) {

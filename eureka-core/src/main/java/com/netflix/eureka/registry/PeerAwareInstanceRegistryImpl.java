@@ -387,7 +387,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     @Override
     public boolean cancel(final String appName, final String id,
                           final boolean isReplication) {
-        //处理下线请求，本地下先后，在同步其它服务器
+        //处理下线请求，本地下下线后，在发送下线请求同步其它服务器下线
         if (super.cancel(appName, id, isReplication)) {
             //同步其它服务器 下线
             replicateToPeers(Action.Cancel, appName, id, null, null, isReplication);

@@ -50,6 +50,8 @@ public interface LeaseManager<T> {
      * Cancel the {@link Lease} associated w/ the passed in <code>appName</code>
      * and <code>id</code>.
      *
+     * 取消某个服务的某个服务实例的注册
+     *
      * @param appName
      *            - unique id of the application.
      * @param id
