@@ -75,8 +75,10 @@ public class EndpointUtils {
     public static List<String> getDiscoveryServiceUrls(EurekaClientConfig clientConfig, String zone, ServiceUrlRandomizer randomizer) {
         boolean shouldUseDns = clientConfig.shouldUseDnsForFetchingServiceUrls();
         if (shouldUseDns) {
+            //TODO:这里可以从动态配置获取？
             return getServiceUrlsFromDNS(clientConfig, zone, clientConfig.shouldPreferSameZoneEureka(), randomizer);
         }
+        //从配置文件获取服务器地址列表
         return getServiceUrlsFromConfig(clientConfig, zone, clientConfig.shouldPreferSameZoneEureka());
     }
 
@@ -182,7 +184,7 @@ public class EndpointUtils {
         }
         logger.debug("The availability zone for the given region {} are {}", region, Arrays.toString(availZones));
         int myZoneOffset = getZoneOffset(instanceZone, preferSameZone, availZones);
-
+        //获取服务器url地址列表
         List<String> serviceUrls = clientConfig.getEurekaServerServiceUrls(availZones[myZoneOffset]);
         if (serviceUrls != null) {
             orderedUrls.addAll(serviceUrls);

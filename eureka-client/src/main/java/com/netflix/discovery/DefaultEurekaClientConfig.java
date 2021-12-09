@@ -368,6 +368,7 @@ public class DefaultEurekaClientConfig implements EurekaClientConfig {
      */
     @Override
     public List<String> getEurekaServerServiceUrls(String myZone) {
+        //从配置文件获取,默认路径为 eureka.serviceUrl
         String serviceUrls = configInstance.getStringProperty(
                 namespace + CONFIG_EUREKA_SERVER_SERVICE_URL_PREFIX + "." + myZone, null).get();
         if (serviceUrls == null || serviceUrls.isEmpty()) {
@@ -376,6 +377,7 @@ public class DefaultEurekaClientConfig implements EurekaClientConfig {
 
         }
         if (serviceUrls != null) {
+            //按逗号分割开
             return Arrays.asList(serviceUrls.split(","));
         }
 

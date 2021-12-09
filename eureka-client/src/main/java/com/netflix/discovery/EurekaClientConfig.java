@@ -392,6 +392,7 @@ public interface EurekaClientConfig {
     /**
      * Gets the list of fully qualified {@link java.net.URL}s to communicate with eureka
      * server.
+     * 获取eureka client通信的eureka server 机器服服务列表地址
      *
      * <p>
      * Typically the eureka server {@link java.net.URL}s carry protocol,host,port,context

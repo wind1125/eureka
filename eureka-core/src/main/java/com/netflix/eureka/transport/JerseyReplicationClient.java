@@ -95,6 +95,7 @@ public class JerseyReplicationClient extends AbstractJerseyEurekaHttpClient impl
             response = jerseyApacheClient.resource(serviceUrl)
                     .path(urlPath)
                     .queryParam("value", newStatus.name())
+                    //将isReplication同步参数设置为true,表示是同步注册请求
                     .header(PeerEurekaNode.HEADER_REPLICATION, "true")
                     .put(ClientResponse.class);
             return EurekaHttpResponse.status(response.getStatus());

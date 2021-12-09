@@ -43,7 +43,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  *
  * @author Karthik Ranganathan, Greg Kim
- * 代表一个eureka server 信息
+ * 代表一个eureka server实例节点，意思是通过这个对象即可完成和其它服务的交互控制？
+ *
  *
  */
 public class PeerEurekaNode {
@@ -79,6 +80,7 @@ public class PeerEurekaNode {
     private final long maxProcessingDelayMs;
     private final PeerAwareInstanceRegistry registry;
     private final String targetHost;
+    //通信组件
     private final HttpReplicationClient replicationClient;
 
     private final TaskDispatcher<String, ReplicationTask> batchingDispatcher;

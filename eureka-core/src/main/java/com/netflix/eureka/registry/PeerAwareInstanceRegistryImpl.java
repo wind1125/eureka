@@ -102,7 +102,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         }
     };
 
-    //最后一分钟心跳数计算
+    //最近一分钟心跳数计算
     private final MeasuredRate numberOfReplicationsLastMin;
 
     protected final EurekaClient eurekaClient;
@@ -211,7 +211,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             }
             //因为server也会作为eureka client启动,client启动时将从其它server拉取注册表信息，保存在本地
             //所以这里就直接从本地获取注册表即可
-            //拉取逻辑在DiscoverClint.fetchRegistry(...)方法
+            //拉取逻辑在eurekaClient = new DiscoveryClient(...)初始化的时候
+            // DiscoveryClient.fetchRegistry(...)方法
             Applications apps = eurekaClient.getApplications();
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
@@ -635,10 +636,10 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * Replicates all eureka actions to peer eureka nodes except for replication
      * traffic to this node.
      *
-     * @param action
-     * @param appName
-     * @param id
-     * @param info
+     * @param action 通信类型 Action.Register等
+     * @param appName eureka client 服务名
+     * @param id eureka client 服务实例ID
+     * @param info eureka client 服务实例
      * @param newStatus
      * @param isReplication 默认为false ,比如注册往其它服务器注册时，是调用其它服务器的register（...）方法，再调用时会通过修改header参数
      *                      将isReplication修改为true,这样其它服务只会注册表自己本地，不会再往外转发，否则会造成死循环
@@ -673,6 +674,12 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     /**
      * Replicates all instance changes to peer eureka nodes except for
      * replication traffic to this node.
+     * @param action 通信类型 Action.Register等
+     * @param appName eureka client 服务名
+     * @param id eureka client 服务实例ID
+     * @param info eureka client 服务实例
+     * @param newStatus
+     * @param node 代表一个eureka server节点
      */
     private void replicateInstanceActionsToPeers(Action action, String appName,
                                                  String id, InstanceInfo info, InstanceStatus newStatus,

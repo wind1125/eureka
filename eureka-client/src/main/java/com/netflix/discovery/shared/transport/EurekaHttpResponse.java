@@ -30,6 +30,8 @@ import java.util.Map;
  * 实体设计思路
  * 通过一个内部类 EurekaHttpResponseBuilder 来创建，EurekaHttpResponseBuilder类的实例的创建又提供了静态方法创建
  * 同时可以传入必传的参数，这种设计感觉非常精巧，值得提倡
+ *
+ * TODO:rpc结果实体设计疑问 这个类作为公共调用返回结果类，怎么没有结果描述 msg类型字段？
  */
 public class EurekaHttpResponse<T> {
     private final int statusCode;

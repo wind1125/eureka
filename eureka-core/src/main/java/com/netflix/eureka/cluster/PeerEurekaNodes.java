@@ -99,7 +99,7 @@ public class PeerEurekaNodes {
 
                 }
             };
-            //每隔10分钟，执行一次更新PeerEurekaNodes服务实例节点信息
+            //每隔10分钟，执行一次更新PeerEurekaNodes服务实例节点对象
             taskExecutor.scheduleWithFixedDelay(
                     peersUpdateTask,
                     serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
@@ -160,13 +160,14 @@ public class PeerEurekaNodes {
             logger.warn("The replica size seems to be empty. Check the route 53 DNS Registry");
             return;
         }
-
+        //通过两个Set来巧妙获取变化的服务器地址
         Set<String> toShutdown = new HashSet<>(peerEurekaNodeUrls);
         toShutdown.removeAll(newPeerUrls);
         //核心变量
         Set<String> toAdd = new HashSet<>(newPeerUrls);
         toAdd.removeAll(peerEurekaNodeUrls);
 
+        //新旧set集合都没有变化，说明服务器配置没有变化
         if (toShutdown.isEmpty() && toAdd.isEmpty()) { // No change
             return;
         }
@@ -201,6 +202,11 @@ public class PeerEurekaNodes {
         this.peerEurekaNodeUrls = new HashSet<>(newPeerUrls);
     }
 
+    /**
+     * 基于服务地址创建PeerEurekaNode对象
+     * @param peerEurekaNodeUrl
+     * @return
+     */
     protected PeerEurekaNode createPeerEurekaNode(String peerEurekaNodeUrl) {
         HttpReplicationClient replicationClient = JerseyReplicationClient.createReplicationClient(serverConfig, serverCodecs, peerEurekaNodeUrl);
         String targetHost = hostFromUrl(peerEurekaNodeUrl);
