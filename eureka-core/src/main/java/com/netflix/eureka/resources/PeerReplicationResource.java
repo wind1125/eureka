@@ -67,6 +67,7 @@ public class PeerReplicationResource {
      * Process batched replication events from peer eureka nodes.
      *
      * 处理批处理任务 请求
+     *
      * 由 replicationClient.submitBatchUpdates(list); 提交过来请求
      * <p>
      *  The batched events are delegated to underlying resources to generate a

@@ -5,6 +5,8 @@ import java.util.List;
 /**
  * An interface to be implemented by clients for task execution.
  *
+ * 任务处理器 怎么处理任务的实现类由使用方来决定和实现
+ *
  * @author Tomasz Bak
  */
 public interface TaskProcessor<T> {

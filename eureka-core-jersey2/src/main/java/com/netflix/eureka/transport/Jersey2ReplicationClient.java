@@ -108,6 +108,11 @@ public class Jersey2ReplicationClient extends AbstractJersey2EurekaHttpClient im
         }
     }
 
+    /**
+     * 批量提交同步请求
+     * @param replicationList
+     * @return
+     */
     @Override
     public EurekaHttpResponse<ReplicationListResponse> submitBatchUpdates(ReplicationList replicationList) {
         Response response = null;

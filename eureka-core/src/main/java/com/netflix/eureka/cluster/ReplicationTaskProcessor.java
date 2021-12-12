@@ -18,6 +18,9 @@ import static com.netflix.eureka.cluster.protocol.ReplicationInstance.Replicatio
 
 /**
  * @author Tomasz Bak
+ *
+ * 处理batchWorkQueue中批量任务的任务处理器
+ *
  */
 class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
 

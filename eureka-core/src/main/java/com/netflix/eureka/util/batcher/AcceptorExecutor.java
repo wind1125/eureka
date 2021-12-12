@@ -1,19 +1,5 @@
 package com.netflix.eureka.util.batcher;
 
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.netflix.eureka.util.batcher.TaskProcessor.ProcessingResult;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.annotations.Monitor;
@@ -24,6 +10,10 @@ import com.netflix.servo.monitor.Timer;
 import com.netflix.servo.stats.StatsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.netflix.eureka.Names.METRIC_REPLICATION_PREFIX;
 
@@ -47,24 +37,33 @@ class AcceptorExecutor<ID, T> {
 
     private static final Logger logger = LoggerFactory.getLogger(AcceptorExecutor.class);
 
+    //队列消息最大大小 10000
     private final int maxBufferSize;
+    //批量处理阈值250
     private final int maxBatchingSize;
     private final long maxBatchingDelay;
 
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
-
+    //任务刚提交过来时，存储刚接收到的任务
     private final BlockingQueue<TaskHolder<ID, T>> acceptorQueue = new LinkedBlockingQueue<>();
+    //存储任务处理失败时，需要从新处理的任务
     private final BlockingDeque<TaskHolder<ID, T>> reprocessQueue = new LinkedBlockingDeque<>();
     private final Thread acceptorThread;
 
+    //TODO:学习先进先出存取数据思路以及Deque 特性学习
+
+    // 存储需要处理的任务列表 pendingTasks和processingOrder 配合来使用
+    //即可以保证先进进出的队列特性，又可以根据ID取到要执行的任务，因为任务存储在map结构中
+    //比如先从processingOrder队列取出来ID,然后从pendingTasks中根据ID取任务
     private final Map<ID, TaskHolder<ID, T>> pendingTasks = new HashMap<>();
     private final Deque<ID> processingOrder = new LinkedList<>();
 
     private final Semaphore singleItemWorkRequests = new Semaphore(0);
+    //单个执行的任务
     private final BlockingQueue<TaskHolder<ID, T>> singleItemWorkQueue = new LinkedBlockingQueue<>();
 
     private final Semaphore batchWorkRequests = new Semaphore(0);
-    //放将要批量执行的任务列表
+    //打包成批的任务，批量执行的任务列表
     private final BlockingQueue<List<TaskHolder<ID, T>>> batchWorkQueue = new LinkedBlockingQueue<>();
 
     private final TrafficShaper trafficShaper;
@@ -100,12 +99,13 @@ class AcceptorExecutor<ID, T> {
         this.maxBatchingDelay = maxBatchingDelay;
         this.trafficShaper = new TrafficShaper(congestionRetryDelayMs, networkFailureRetryMs);
 
-        ThreadGroup threadGroup = new ThreadGroup("eurekaTaskExecutors");
         // 初始化接收执行器，传入接收处理线程
+        ThreadGroup threadGroup = new ThreadGroup("eurekaTaskExecutors");
         this.acceptorThread = new Thread(threadGroup, new AcceptorRunner(), "TaskAcceptor-" + id);
         this.acceptorThread.setDaemon(true);
         this.acceptorThread.start();
 
+        //TODO:统计指标计算 可以学习如何计算的
         final double[] percentiles = {50.0, 95.0, 99.0, 99.5};
         final StatsConfig statsConfig = new StatsConfig.Builder()
                 .withSampleSize(1000)
@@ -179,6 +179,9 @@ class AcceptorExecutor<ID, T> {
         return singleItemWorkQueue.size() + batchWorkQueue.size();
     }
 
+    /**
+     * 后台线程处理队列acceptorQueue中的消息
+     */
     class AcceptorRunner implements Runnable {
         @Override
         public void run() {
@@ -196,6 +199,7 @@ class AcceptorExecutor<ID, T> {
                     if (scheduleTime <= now) {
                         //批量分配任务 去执行
                         assignBatchWork();
+                        //单个任务执行
                         assignSingleItemWork();
                     }
 
@@ -244,6 +248,7 @@ class AcceptorExecutor<ID, T> {
 
         private void drainReprocessQueue() {
             long now = System.currentTimeMillis();
+            //如果正在执行的任务数量小于10000，说明还可以继续执行，从 从新处理队列中取任务
             while (!reprocessQueue.isEmpty() && !isFull()) {
                 TaskHolder<ID, T> taskHolder = reprocessQueue.pollLast();
                 ID id = taskHolder.getId();
@@ -252,10 +257,12 @@ class AcceptorExecutor<ID, T> {
                 } else if (pendingTasks.containsKey(id)) {
                     overriddenTasks++;
                 } else {
+                    //将任务放到处理任务队列中
                     pendingTasks.put(id, taskHolder);
                     processingOrder.addFirst(id);
                 }
             }
+            //TODO：这行代码在干啥？
             if (isFull()) {
                 queueOverflows += reprocessQueue.size();
                 reprocessQueue.clear();
@@ -267,8 +274,10 @@ class AcceptorExecutor<ID, T> {
                 pendingTasks.remove(processingOrder.poll());
                 queueOverflows++;
             }
+            //第一次过来 pendingTasks应该是空的
             TaskHolder<ID, T> previousTask = pendingTasks.put(taskHolder.getId(), taskHolder);
             if (previousTask == null) {
+                //第一次走这里
                 processingOrder.add(taskHolder.getId());
             } else {
                 overriddenTasks++;
@@ -313,6 +322,7 @@ class AcceptorExecutor<ID, T> {
                         batchWorkRequests.release();
                     } else {
                         batchSizeMetric.record(holders.size(), TimeUnit.MILLISECONDS);
+                        //放入一个批次的任务
                         batchWorkQueue.add(holders);
                     }
                 }
@@ -321,6 +331,7 @@ class AcceptorExecutor<ID, T> {
 
         /**
          * 判断是否有足够的任务 批量去执行
+         *
          * @return
          */
         private boolean hasEnoughTasksForNextBatch() {

@@ -1,11 +1,5 @@
 package com.netflix.eureka.util.batcher;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.netflix.eureka.util.batcher.TaskProcessor.ProcessingResult;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.annotations.Monitor;
@@ -15,6 +9,12 @@ import com.netflix.servo.monitor.StatsTimer;
 import com.netflix.servo.stats.StatsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.netflix.eureka.Names.METRIC_REPLICATION_PREFIX;
 
@@ -32,6 +32,14 @@ class TaskExecutors<ID, T> {
     private final AtomicBoolean isShutdown;
     private final List<Thread> workerThreads;
 
+    /**
+     * 构造方法初始化时，会根据传入workerCount线程数，默认20，初始化20个线程来运行
+     * 批量或单个获取要执行的任务来执行
+     *
+     * @param workerRunnableFactory
+     * @param workerCount
+     * @param isShutdown
+     */
     TaskExecutors(WorkerRunnableFactory<ID, T> workerRunnableFactory, int workerCount, AtomicBoolean isShutdown) {
         this.isShutdown = isShutdown;
         this.workerThreads = new ArrayList<>();
@@ -54,6 +62,17 @@ class TaskExecutors<ID, T> {
         }
     }
 
+    /**
+     * TODO:设计思路：TaskExecutors该类自身内部提供创建自己实例的方法
+     *
+     * @param name
+     * @param workerCount
+     * @param processor
+     * @param acceptorExecutor
+     * @param <ID>
+     * @param <T>
+     * @return
+     */
     static <ID, T> TaskExecutors<ID, T> singleItemExecutors(final String name,
                                                             int workerCount,
                                                             final TaskProcessor<T> processor,
@@ -68,6 +87,15 @@ class TaskExecutors<ID, T> {
         }, workerCount, isShutdown);
     }
 
+    /**
+     * @param name
+     * @param workerCount
+     * @param processor
+     * @param acceptorExecutor
+     * @param <ID>
+     * @param <T>
+     * @return
+     */
     static <ID, T> TaskExecutors<ID, T> batchExecutors(final String name,
                                                        int workerCount,
                                                        final TaskProcessor<T> processor,
@@ -77,7 +105,7 @@ class TaskExecutors<ID, T> {
         return new TaskExecutors<>(new WorkerRunnableFactory<ID, T>() {
             @Override
             public WorkerRunnable<ID, T> create(int idx) {
-                return new BatchWorkerRunnable<>("TaskBatchingWorker-" +name + '-' + idx, isShutdown, metrics, processor, acceptorExecutor);
+                return new BatchWorkerRunnable<>("TaskBatchingWorker-" + name + '-' + idx, isShutdown, metrics, processor, acceptorExecutor);
             }
         }, workerCount, isShutdown);
     }
